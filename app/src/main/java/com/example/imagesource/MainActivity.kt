@@ -20,17 +20,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import coil.annotation.ExperimentalCoilApi
+import coil.compose.ImagePainter
 import coil.compose.rememberImagePainter
 
-var imageUriState = mutableStateOf<Uri?>(null)
-var imageSetUrl: Uri? = null
+var currentlySelectedImageUri = mutableStateOf<Uri?>(null)
+var previousImageUri: Uri? = null
 
 class MainActivity : ComponentActivity() {
     private val selectImageLauncher = registerForActivityResult(GetContent()) { uri ->
-        imageSetUrl = imageUriState.value
-        imageUriState.value = uri
+        previousImageUri = currentlySelectedImageUri.value
+        currentlySelectedImageUri.value = uri
     }
 
+    @ExperimentalCoilApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -39,33 +42,65 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@ExperimentalCoilApi
 @Composable
 fun ImageSourceActivityScreen(selectImageLauncher: ActivityResultLauncher<String>) {
     var isWebFormVisible by remember { mutableStateOf(false) }
-
-    var webUrl by rememberSaveable { mutableStateOf("") }
     var urlText by rememberSaveable { mutableStateOf("") }
 
+    val localImagePainterUrl = remember { mutableStateOf<Uri?>(null) }
+
+    val painter = rememberImagePainter(
+        data = localImagePainterUrl.value
+            ?: currentlySelectedImageUri.value
+            ?: previousImageUri
+            ?: R.drawable.blank_profile_picture,
+        builder = {
+            placeholder(R.drawable.blank_profile_picture)
+        }
+    )
+
+    val isError = painter.state is ImagePainter.State.Error
+
+    LaunchedEffect(isError) {
+        if (isError) {
+            localImagePainterUrl.value = previousImageUri
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center
+        modifier = Modifier
+            .fillMaxSize(),
+        //.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = rememberImagePainter(
-                if (imageUriState.value != null) {
-                    imageUriState.value
-                } else {
-                    if (imageSetUrl != null) {
-                        imageSetUrl
-                    } else {
-                        R.drawable.blank_profile_picture
-                    }
-                }
-            ),
-            contentDescription = "profile image",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(modifier = Modifier.fillMaxHeight(0.4f)) {
+//            Image(
+//                painter = rememberImagePainter(
+//                    if (currentlySelectedImageUri.value != null) { // use the currently selected image
+//                        currentlySelectedImageUri.value
+//                    } else {
+//                        if (previousImageUri != null) { // use the previously selected image
+//                            previousImageUri
+//                        } else {
+//                            R.drawable.blank_profile_picture // use the placeholder image
+//                        }
+//                    }, builder = {
+//                        placeholder(R.drawable.blank_profile_picture)
+//                        error(R.drawable.blank_profile_picture) // FIXME: Set the previousImageUri
+//                    }),
+//                contentDescription = "profile image",
+//                contentScale = ContentScale.Crop,
+//                modifier = Modifier.fillMaxWidth()
+//            )
+            Image(
+                painter = painter,
+                contentDescription = "profile image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -112,8 +147,8 @@ fun ImageSourceActivityScreen(selectImageLauncher: ActivityResultLauncher<String
                         isWebFormVisible = false
                         // TODO: Verify valid image URL + image exists + valid image
                         if (URLUtil.isValidUrl(urlText.trim())) {
-                            imageSetUrl = urlText.toUri()
-                            imageUriState.value = urlText.toUri()
+                            previousImageUri = urlText.toUri()
+                            currentlySelectedImageUri.value = urlText.toUri()
                             urlText = ""
                         }
                     },
