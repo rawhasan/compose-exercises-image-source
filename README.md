@@ -2,9 +2,9 @@
 - Show user-selected image from the gallery.
 - Show user-entered image from a web URL.
 
-- [ ] TODO: Verify image exists on provided URL before showing
-- [ ] TODO: Show the previous image in case of an non-existing image on the URL
-- [ ] TODO: Display image from the camera when the Camera API from Compose arrives
+- [ ] TODO: Verify image exists on provided URL before showing.
+- [ ] TODO: Show the previous image in case of an non-existing image on the URL.
+- [ ] TODO: Display image from the camera when the Camera API from Compose arrives.
 <br />
 
 Blank Image | Selected Image | Image Error
