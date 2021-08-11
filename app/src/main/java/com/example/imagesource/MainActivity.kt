@@ -1,12 +1,12 @@
 package com.example.imagesource
 
-import android.net.Uri
 import android.os.Bundle
 import android.webkit.URLUtil
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
@@ -23,85 +23,58 @@ import androidx.core.net.toUri
 import coil.annotation.ExperimentalCoilApi
 import coil.compose.rememberImagePainter
 
-var currentlySelectedImageUri = mutableStateOf<Uri?>(null)
-var previousImageUri: Uri? = null
+// Display an image selected by the user from gallery,
+// or from a provided URL.
+// TODO: Display image from the camera when the Camera API from Compose arrives
 
 class MainActivity : ComponentActivity() {
+    private val imageViewModel by viewModels<ImageViewModel>()
+
     private val selectImageLauncher = registerForActivityResult(GetContent()) { uri ->
-        previousImageUri = currentlySelectedImageUri.value
-        currentlySelectedImageUri.value = uri
+        imageViewModel.setPreviousImageUri(imageViewModel.getCurrentlySelectedImageUri())
+        imageViewModel.setCurrentlySelectedImageUri(uri)
     }
 
     @ExperimentalCoilApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ImageSourceActivityScreen(selectImageLauncher)
+            ImageSourceActivityScreen(selectImageLauncher, imageViewModel)
         }
     }
 }
 
 @ExperimentalCoilApi
 @Composable
-fun ImageSourceActivityScreen(selectImageLauncher: ActivityResultLauncher<String>) {
+fun ImageSourceActivityScreen(
+    selectImageLauncher: ActivityResultLauncher<String>,
+    imageViewModel: ImageViewModel
+) {
     var isWebFormVisible by remember { mutableStateOf(false) }
     var urlText by rememberSaveable { mutableStateOf("") }
 
-//    Solution by Philip (SO)
-//    val localImagePainterUrl = remember { mutableStateOf<Uri?>(null) }
-//
-//    val painter = rememberImagePainter(
-//        data = localImagePainterUrl.value
-//            ?: currentlySelectedImageUri.value
-//            ?: previousImageUri
-//            ?: R.drawable.blank_profile_picture,
-//        builder = {
-//            placeholder(R.drawable.blank_profile_picture)
-//        }
-//    )
-//
-//    val isError = painter.state is ImagePainter.State.Error
-//
-//    LaunchedEffect(isError) {
-//        if (isError) {
-//            localImagePainterUrl.value = previousImageUri
-//        }
-//    }
-
     Column(
-        modifier = Modifier
-            .fillMaxSize(),
-        //.verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(modifier = Modifier.fillMaxHeight(0.4f)) {
             Image(
                 painter = rememberImagePainter(
-                    if (currentlySelectedImageUri.value != null) { // use the currently selected image
-                        currentlySelectedImageUri.value
+                    if (imageViewModel.getCurrentlySelectedImageUri() != null) { // use the currently selected image
+                        imageViewModel.getCurrentlySelectedImageUri()
+                    } else if (imageViewModel.getPreviousImageUri() != null) { // use the previously selected image
+                        imageViewModel.getPreviousImageUri()
                     } else {
-                        if (previousImageUri != null) { // use the previously selected image
-                            previousImageUri
-                        } else {
-                            R.drawable.blank_profile_picture // use the placeholder image
-                        }
+                        R.drawable.blank_profile_picture // use the placeholder image
                     }, builder = {
                         placeholder(R.drawable.blank_profile_picture)
-                        error(R.drawable.blank_profile_picture) // FIXME: Set the previousImageUri
+                        error(R.drawable.blank_profile_picture_error) // FIXME: Set the previousImageUri
                     }),
                 contentDescription = "profile image",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth()
             )
-
-//            Solution by Philip (SO)
-//            Image(
-//                painter = painter,
-//                contentDescription = "profile image",
-//                contentScale = ContentScale.Crop,
-//                modifier = Modifier.fillMaxWidth()
-//            )
         }
 
         Row(
@@ -147,10 +120,11 @@ fun ImageSourceActivityScreen(selectImageLauncher: ActivityResultLauncher<String
                 Button(
                     onClick = {
                         isWebFormVisible = false
-                        // TODO: Verify valid image URL + image exists + valid image
+
+                        // FIXME: Verify image exists on provided URL
                         if (URLUtil.isValidUrl(urlText.trim())) {
-                            previousImageUri = currentlySelectedImageUri.value
-                            currentlySelectedImageUri.value = urlText.toUri()
+                            imageViewModel.setPreviousImageUri(imageViewModel.getCurrentlySelectedImageUri())
+                            imageViewModel.setCurrentlySelectedImageUri(urlText.toUri())
                             urlText = ""
                         }
                     },
@@ -163,6 +137,5 @@ fun ImageSourceActivityScreen(selectImageLauncher: ActivityResultLauncher<String
                 }
             }
         }
-
     }
 }
